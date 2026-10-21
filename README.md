@@ -25,3 +25,11 @@ mvn spring-boot:run
 ```bash
 mvn test
 ```
+
+## Структура для лабораторной работы №5
+
+- `config/checkstyle/checkstyle.xml` — правила статического анализа Java-кода;
+- `.github/workflows/ci.yml` — сборка, тесты, Checkstyle и JaCoCo;
+- `.github/workflows/commitlint.yml` — проверка Conventional Commits;
+- `scripts/collect-metrics.py` — сбор основных метрик проекта;
+- `metrics/stage-metrics.csv` — накопление метрик по этапам разработки.

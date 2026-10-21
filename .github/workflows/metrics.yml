@@ -1,0 +1,40 @@
+name: Stage metrics
+
+on:
+  push:
+    tags:
+      - "stage-*"
+
+jobs:
+  metrics:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build and test
+        run: mvn -B verify
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Collect metrics
+        run: python scripts/collect-metrics.py
+
+      - name: Upload stage metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: metrics-${{ github.ref_name }}
+          path: metrics/stage-metrics.csv

@@ -1,0 +1,1 @@
+stage,date,checkstyle_errors,jacoco_line_coverage,tests_total,tests_failed,test_time_seconds,commit_count

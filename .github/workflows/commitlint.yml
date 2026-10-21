@@ -1,0 +1,30 @@
+name: Conventional Commits
+
+on:
+  pull_request:
+
+jobs:
+  commit-messages:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit messages
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          head_sha="${{ github.event.pull_request.head.sha }}"
+          invalid_messages=$(git log --format=%s "${base_sha}..${head_sha}" | grep -Ev '^(feat|fix|docs|style|refactor|test|chore|ci|perf|build|revert)(\([[:alnum:]_.-]+\))?!?: .+' || true)
+
+          if [[ -n "${invalid_messages}" ]]; then
+            echo "Найдены коммиты, не соответствующие Conventional Commits:"
+            echo "${invalid_messages}"
+            exit 1
+          fi
+
+          echo "Все сообщения коммитов соответствуют Conventional Commits."
