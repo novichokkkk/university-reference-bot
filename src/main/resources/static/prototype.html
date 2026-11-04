@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Университетский справочник — прототип</title>
+<style>
+body{font:18px system-ui;margin:0;background:#f3f5f9;color:#17283e}main{max-width:850px;margin:50px auto;padding:32px;background:white;border-radius:16px}h1{font-size:30px}small{color:#59677a}button{padding:12px;border:0;border-radius:7px;background:#245dcc;color:white;cursor:pointer}input{padding:12px;font:inherit;flex:1;min-width:0}form{display:flex;gap:10px;margin:24px 0}#dialog p{padding:14px;background:#edf2f9;border-radius:8px;white-space:pre-wrap}.topics{display:flex;flex-wrap:wrap;gap:8px}.topics button{background:#e7edf8;color:#254c80}
+</style>
+<main><small>Лабораторная работа №6 · Java + Spring Boot + PostgreSQL</small>
+<h1>Справочник университета</h1>
+<p>Учебный прототип: ответы демонстрационные, актуальные сведения вуза не загружены.</p>
+<div class="topics" id="topics"></div>
+<form id="form"><input id="question" maxlength="1000" required aria-label="Ваш вопрос" placeholder="Например: как поступить в вуз?"><button>Отправить</button></form>
+<div id="dialog" aria-live="polite"></div>
+<small>Поддерживаются пять тем. Неизвестный или неоднозначный запрос получает подсказку.</small></main>
+<script>
+const q=document.querySelector('#question'),d=document.querySelector('#dialog');
+for(const t of ['Поступление','Расписание','Контакты','Общежитие','Стипендия','/help']){const b=document.createElement('button');b.textContent=t;b.onclick=()=>{q.value=t;};document.querySelector('#topics').append(b);}
+function line(text){const p=document.createElement('p');p.textContent=text;d.append(p);}
+document.querySelector('#form').onsubmit=async e=>{e.preventDefault();if(!q.value.trim())return;const text=q.value;q.value='';line('Вы: '+text);try{const r=await fetch('/api/prototype/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});if(!r.ok)throw Error('Запрос отклонён ('+r.status+')');const a=await r.json();line('Бот ['+a.intent+']: '+a.answer);}catch(err){line('Ошибка: '+err.message);}};
+</script></html>
