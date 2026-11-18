@@ -15,9 +15,11 @@ public class FaqEntry {
     private String intent;
     private String question;
     private String answer;
+    private boolean demo;
 
     public Long getId() { return id; }
     public String getIntent() { return intent; }
     public String getQuestion() { return question; }
     public String getAnswer() { return answer; }
+    public boolean isDemo() { return demo; }
 }

@@ -17,6 +17,7 @@ public class ScheduleLesson {
     private String startsAt;
     private String subject;
     private String room;
+    private boolean demo;
 
     public Long getId() { return id; }
     public String getGroupCode() { return groupCode; }
@@ -24,4 +25,5 @@ public class ScheduleLesson {
     public String getStartsAt() { return startsAt; }
     public String getSubject() { return subject; }
     public String getRoom() { return room; }
+    public boolean isDemo() { return demo; }
 }

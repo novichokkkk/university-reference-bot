@@ -67,7 +67,7 @@ class PrototypeTest {
         mvc.perform(post("/api/prototype/ask").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"text\":\"Как поступить?\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.intent").value("ADMISSION"))
-                .andExpect(jsonPath("$.demo").value(true));
+                .andExpect(jsonPath("$.demo").value(false));
     }
 
     @Test

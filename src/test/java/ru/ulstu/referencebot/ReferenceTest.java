@@ -10,6 +10,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.ulstu.referencebot.repository.ProfileRepository;
 import ru.ulstu.referencebot.repository.FaqRepository;
+import ru.ulstu.referencebot.repository.ContactRepository;
 import ru.ulstu.referencebot.service.AnswerService;
 import ru.ulstu.referencebot.service.ReferenceService;
 
@@ -37,25 +38,32 @@ class ReferenceTest {
     private FaqRepository faq;
     @Autowired
     private AnswerService answers;
+    @Autowired
+    private ContactRepository contacts;
 
     @Test
     void twentyFaqEntriesCanAnswerExactQuestion() {
         assertEquals(20, faq.count());
         assertEquals("ADMISSION", answers.answer("Когда подать заявление?").intent());
-        assertTrue(answers.answer("Когда подать заявление?").answer().contains("Демо"));
+        assertTrue(answers.answer("Когда подать заявление?").answer().contains("ulstu.ru"));
+        assertEquals(false, answers.answer("Когда подать заявление?").demo());
+        assertEquals(true, answers.answer("Какие пары в понедельник?").demo());
     }
 
     @Test
     void scheduleAndMissingData() throws Exception {
         assertEquals(2, reference.schedule("ДЕМО-1", 1).size());
-        assertTrue(reference.scheduleText("ДЕМО-1", 3).contains("не найдено"));
+        assertTrue(reference.scheduleText("ДЕМО-1", 6).contains("не найдено"));
+        assertTrue(reference.schedule("ДЕМО-1", 1).get(0).isDemo());
         mvc.perform(get("/api/reference/schedule").param("group", "ДЕМО-1").param("day", "8"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void contactSearchAndMissingData() throws Exception {
-        assertTrue(reference.contactText("деканат").contains("demo@example.invalid"));
+        assertEquals(10, contacts.count());
+        assertTrue(reference.contactText("деканат").contains("fist@ulstu.ru"));
+        assertTrue(reference.contactText("деканат").contains("https://ulstu.ru/"));
         assertTrue(reference.contactText("несуществующее").contains("не найдено"));
         mvc.perform(get("/api/reference/contacts").param("query", " "))
                 .andExpect(status().isBadRequest());

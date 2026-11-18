@@ -58,7 +58,9 @@ public class ReferenceService {
                     + String.join(", ", found.stream().map(DepartmentContact::getName).toList());
         }
         var contact = found.get(0);
-        return contact.getName() + ": телефон " + contact.getPhone() + ", e-mail " + contact.getEmail();
+        String text = contact.getName() + ": телефон " + contact.getPhone() + ", e-mail " + contact.getEmail();
+        return contact.getSourceUrl() == null || contact.getSourceUrl().isBlank()
+                ? text : text + "\nИсточник: " + contact.getSourceUrl();
     }
 
     public StudentProfile saveProfile(long telegramId, String group) {

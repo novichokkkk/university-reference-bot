@@ -1,8 +1,8 @@
 package ru.ulstu.referencebot.service;
 
 import org.springframework.stereotype.Service;
-import ru.ulstu.referencebot.repository.KnowledgeRepository;
 import ru.ulstu.referencebot.repository.FaqRepository;
+import ru.ulstu.referencebot.repository.KnowledgeRepository;
 
 @Service
 public class AnswerService {
@@ -25,16 +25,21 @@ public class AnswerService {
         var exact = faq.findByQuestionIgnoreCase(text.trim());
         if (exact.isPresent()) {
             var entry = exact.get();
-            return new Reply(entry.getIntent(), entry.getAnswer(), true);
+            return new Reply(entry.getIntent(), entry.getAnswer(), entry.isDemo());
         }
         String intent = intents.classify(text);
         String message = switch (intent) {
-            case "HELP" -> "Учебный прототип. Темы: поступление, расписание, контакты, общежитие, стипендия.";
+            case "HELP" -> "Темы: поступление, расписание, контакты, общежитие, стипендия. "
+                    + "Для поиска: /contacts ФИСТ, /group ДЕМО-1, /schedule 1.";
             case "UNKNOWN" -> "Не удалось понять вопрос. Напишите /help, чтобы увидеть доступные темы.";
             case "AMBIGUOUS" -> "В вопросе несколько тем. Задайте, пожалуйста, один вопрос за раз.";
-            default -> repository.findById(intent).map(entry -> entry.getAnswer())
-                    .orElse("Для этой темы пока нет ответа в базе знаний.");
+            default -> null;
         };
-        return new Reply(intent, message, true);
+        if (message != null) {
+            return new Reply(intent, message, false);
+        }
+        return repository.findById(intent)
+                .map(entry -> new Reply(intent, entry.getAnswer(), entry.isDemo()))
+                .orElse(new Reply(intent, "Для этой темы пока нет ответа в базе знаний.", false));
     }
 }
