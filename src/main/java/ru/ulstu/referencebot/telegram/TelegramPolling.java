@@ -15,8 +15,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
-import ru.ulstu.referencebot.service.AnswerService;
-import ru.ulstu.referencebot.service.ReferenceService;
 
 @Configuration
 @EnableScheduling
@@ -25,19 +23,17 @@ public class TelegramPolling {
     private static final Logger LOG = LoggerFactory.getLogger(TelegramPolling.class);
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final ObjectMapper json;
-    private final AnswerService answers;
-    private final ReferenceService reference;
+    private final TelegramMenuService menu;
     private final String token;
     private long offset;
 
-    public TelegramPolling(ObjectMapper json, AnswerService answers, ReferenceService reference,
+    public TelegramPolling(ObjectMapper json, TelegramMenuService menu,
             @Value("${TELEGRAM_BOT_TOKEN:}") String token) {
         if (!token.matches("[0-9]+:[A-Za-z0-9_-]+")) {
             throw new IllegalArgumentException("Set TELEGRAM_BOT_TOKEN before enabling Telegram.");
         }
         this.json = json;
-        this.answers = answers;
-        this.reference = reference;
+        this.menu = menu;
         this.token = token;
     }
 
@@ -57,34 +53,24 @@ public class TelegramPolling {
     public void poll() {
         try {
             JsonNode updates = call("getUpdates", Map.of("offset", offset, "timeout", 20,
-                    "allowed_updates", new String[] {"message"}));
+                    "allowed_updates", new String[] {"message", "callback_query"}));
             for (JsonNode update : updates) {
-                JsonNode message = update.path("message");
-                if (message.has("chat") && message.path("chat").path("type").asText().equals("private")) {
-                    String reply;
-                    if (!message.has("text")) {
-                        reply = "Прототип принимает только текстовые сообщения.";
-                    } else if (message.path("text").asText().length() > 1000) {
-                        reply = "Вопрос должен содержать не более 1000 символов.";
-                    } else {
-                        String text = message.path("text").asText().trim();
-                        long userId = message.path("from").path("id").asLong();
-                        try {
-                            if (text.startsWith("/group ")) {
-                                reference.saveProfile(userId, text.substring(7).trim());
-                                reply = "Группа сохранена. Для расписания: /schedule 1 (понедельник).";
-                            } else if (text.matches("/schedule [1-7]")) {
-                                reply = reference.personalSchedule(userId, Integer.parseInt(text.substring(10)));
-                            } else if (text.startsWith("/contacts ")) {
-                                reply = reference.contactText(text.substring(10));
-                            } else {
-                                reply = answers.answer(text).answer();
-                            }
-                        } catch (IllegalArgumentException exception) {
-                            reply = exception.getMessage();
-                        }
+                JsonNode callback = update.path("callback_query");
+                if (!callback.isMissingNode()) {
+                    call("answerCallbackQuery", Map.of("callback_query_id", callback.path("id").asText()));
+                    JsonNode message = callback.path("message");
+                    if (isPrivate(message)) {
+                        long userId = callback.path("from").path("id").asLong();
+                        send(message.path("chat").path("id").asLong(),
+                                menu.onCallback(userId, callback.path("data").asText(null)));
                     }
-                    call("sendMessage", Map.of("chat_id", message.path("chat").path("id").asLong(), "text", reply));
+                } else {
+                    JsonNode message = update.path("message");
+                    if (isPrivate(message)) {
+                        long userId = message.path("from").path("id").asLong();
+                        String text = message.has("text") ? message.path("text").asText() : null;
+                        send(message.path("chat").path("id").asLong(), menu.onText(userId, text));
+                    }
                 }
                 offset = update.path("update_id").asLong() + 1;
             }
@@ -94,5 +80,13 @@ public class TelegramPolling {
             // Do not log exception messages: HTTP errors can contain the secret bot URL.
             LOG.warn("Telegram unavailable; retrying. Check token, network and absence of another polling instance.");
         }
+    }
+
+    private boolean isPrivate(JsonNode message) {
+        return message.has("chat") && "private".equals(message.path("chat").path("type").asText());
+    }
+
+    private void send(long chatId, TelegramMenuService.Reply reply) throws Exception {
+        call("sendMessage", Map.of("chat_id", chatId, "text", reply.text(), "reply_markup", reply.markup()));
     }
 }

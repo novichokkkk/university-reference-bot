@@ -61,7 +61,9 @@ class ReferenceTest {
 
     @Test
     void contactSearchAndMissingData() throws Exception {
-        assertEquals(10, contacts.count());
+        assertEquals(14, contacts.count());
+        assertEquals(10, contacts.findByFacultyTrueOrderByNameAsc().size());
+        assertTrue(reference.contactText("Энергетический").contains("a.dubov@ulstu.ru"));
         assertTrue(reference.contactText("деканат").contains("fist@ulstu.ru"));
         assertTrue(reference.contactText("деканат").contains("https://ulstu.ru/"));
         assertTrue(reference.contactText("несуществующее").contains("не найдено"));

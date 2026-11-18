@@ -1,6 +1,7 @@
 package ru.ulstu.referencebot.service;
 
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import ru.ulstu.referencebot.entity.DepartmentContact;
 import ru.ulstu.referencebot.entity.ScheduleLesson;
@@ -58,6 +59,17 @@ public class ReferenceService {
                     + String.join(", ", found.stream().map(DepartmentContact::getName).toList());
         }
         var contact = found.get(0);
+        return formatContact(contact);
+    }
+
+    public String facultyContact(long id) {
+        var contact = contacts.findById(id)
+                .filter(DepartmentContact::isFaculty)
+                .orElseThrow(() -> new IllegalArgumentException("Факультет не найден."));
+        return formatContact(contact);
+    }
+
+    private String formatContact(DepartmentContact contact) {
         String text = contact.getName() + ": телефон " + contact.getPhone() + ", e-mail " + contact.getEmail();
         return contact.getSourceUrl() == null || contact.getSourceUrl().isBlank()
                 ? text : text + "\nИсточник: " + contact.getSourceUrl();
@@ -68,6 +80,10 @@ public class ReferenceService {
             throw new IllegalArgumentException("Некорректный идентификатор или группа.");
         }
         return profiles.save(new StudentProfile(telegramId, group));
+    }
+
+    public Optional<String> profileGroup(long telegramId) {
+        return profiles.findById(telegramId).map(StudentProfile::getGroupCode);
     }
 
     public String personalSchedule(long telegramId, int day) {

@@ -6,4 +6,5 @@ import ru.ulstu.referencebot.entity.DepartmentContact;
 
 public interface ContactRepository extends JpaRepository<DepartmentContact, Long> {
     List<DepartmentContact> findByNameContainingIgnoreCase(String name);
+    List<DepartmentContact> findByFacultyTrueOrderByNameAsc();
 }
