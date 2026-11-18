@@ -7,7 +7,7 @@ input,button,textarea,select{font:inherit;margin:.25rem;padding:.45rem}button{ba
 pre{background:#f2f5fa;padding:1rem;white-space:pre-wrap;overflow-wrap:anywhere}
 </style></head><body>
 <h1>Справочник университета</h1>
-<section><h2>Расписание</h2><label>Группа <input id="group" value="ДЕМО-1"></label><label>День <select id="day"><option value="1">Понедельник</option><option value="2">Вторник</option><option value="3">Среда</option><option value="4">Четверг</option><option value="5">Пятница</option></select></label><button id="schedule">Найти</button><pre id="schedule-result"></pre></section>
+<section><h2>Расписание</h2><label>Группа <input id="group" value="ПИбд-42"></label><label>День <select id="day"><option value="1">Понедельник</option><option value="2">Вторник</option><option value="3">Среда</option><option value="4">Четверг</option><option value="5">Пятница</option></select></label><button id="schedule">Найти</button><pre id="schedule-result"></pre></section>
 <section><h2>Контакты</h2><label>Подразделение <input id="query" value="деканат"></label><button id="contacts">Найти</button><pre id="contact-result"></pre></section>
 <section><h2>Администрирование</h2><p>Ключ ADMIN_KEY хранится только до закрытия страницы.</p><label>Ключ <input id="key" type="password" autocomplete="off"></label><button id="list">Список</button><p><label>Метка <input id="intent" placeholder="ADMISSION"></label><label>Раздел <input id="category"></label></p><label>Ответ <textarea id="answer" rows="3" cols="60"></textarea></label><p><button id="create">Добавить</button><button id="update">Изменить</button><button id="remove">Удалить</button></p><pre id="admin-result"></pre></section>
 <script>

@@ -30,7 +30,7 @@ public class AnswerService {
         String intent = intents.classify(text);
         String message = switch (intent) {
             case "HELP" -> "Темы: поступление, расписание, контакты, общежитие, стипендия. "
-                    + "Для поиска: /contacts ФИСТ, /group ДЕМО-1, /schedule 1.";
+                    + "Для поиска: /contacts ФИСТ, /group ПИбд-42, /schedule 1.";
             case "UNKNOWN" -> "Не удалось понять вопрос. Напишите /help, чтобы увидеть доступные темы.";
             case "AMBIGUOUS" -> "В вопросе несколько тем. Задайте, пожалуйста, один вопрос за раз.";
             default -> null;

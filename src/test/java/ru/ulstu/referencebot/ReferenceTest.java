@@ -52,10 +52,10 @@ class ReferenceTest {
 
     @Test
     void scheduleAndMissingData() throws Exception {
-        assertEquals(2, reference.schedule("ДЕМО-1", 1).size());
-        assertTrue(reference.scheduleText("ДЕМО-1", 6).contains("не найдено"));
-        assertTrue(reference.schedule("ДЕМО-1", 1).get(0).isDemo());
-        mvc.perform(get("/api/reference/schedule").param("group", "ДЕМО-1").param("day", "8"))
+        assertEquals(2, reference.schedule("ПИбд-42", 1).size());
+        assertTrue(reference.scheduleText("ПИбд-42", 6).contains("не найдено"));
+        assertTrue(reference.schedule("ПИбд-42", 1).get(0).isDemo());
+        mvc.perform(get("/api/reference/schedule").param("group", "ПИбд-42").param("day", "8"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -71,8 +71,8 @@ class ReferenceTest {
 
     @Test
     void profilePersistsAndPersonalizesSchedule() {
-        reference.saveProfile(123456L, "ДЕМО-1");
-        assertEquals("ДЕМО-1", profiles.findById(123456L).orElseThrow().getGroupCode());
+        reference.saveProfile(123456L, "ПИбд-42");
+        assertEquals("ПИбд-42", profiles.findById(123456L).orElseThrow().getGroupCode());
         assertTrue(reference.personalSchedule(123456L, 1).contains("Базы данных"));
         assertTrue(reference.personalSchedule(987654L, 1).contains("/group"));
     }
