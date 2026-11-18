@@ -2,15 +2,18 @@ package ru.ulstu.referencebot.service;
 
 import org.springframework.stereotype.Service;
 import ru.ulstu.referencebot.repository.KnowledgeRepository;
+import ru.ulstu.referencebot.repository.FaqRepository;
 
 @Service
 public class AnswerService {
     private final IntentService intents;
     private final KnowledgeRepository repository;
+    private final FaqRepository faq;
 
-    public AnswerService(IntentService intents, KnowledgeRepository repository) {
+    public AnswerService(IntentService intents, KnowledgeRepository repository, FaqRepository faq) {
         this.intents = intents;
         this.repository = repository;
+        this.faq = faq;
     }
 
     public record Reply(String intent, String answer, boolean demo) { }
@@ -18,6 +21,11 @@ public class AnswerService {
     public Reply answer(String text) {
         if (text == null || text.isBlank() || text.length() > 1000) {
             throw new IllegalArgumentException("Введите текст длиной от 1 до 1000 символов.");
+        }
+        var exact = faq.findByQuestionIgnoreCase(text.trim());
+        if (exact.isPresent()) {
+            var entry = exact.get();
+            return new Reply(entry.getIntent(), entry.getAnswer(), true);
         }
         String intent = intents.classify(text);
         String message = switch (intent) {

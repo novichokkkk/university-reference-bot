@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import ru.ulstu.referencebot.service.AnswerService;
+import ru.ulstu.referencebot.service.ReferenceService;
 
 @Configuration
 @EnableScheduling
@@ -25,16 +26,18 @@ public class TelegramPolling {
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final ObjectMapper json;
     private final AnswerService answers;
+    private final ReferenceService reference;
     private final String token;
     private long offset;
 
-    public TelegramPolling(ObjectMapper json, AnswerService answers,
+    public TelegramPolling(ObjectMapper json, AnswerService answers, ReferenceService reference,
             @Value("${TELEGRAM_BOT_TOKEN:}") String token) {
         if (!token.matches("[0-9]+:[A-Za-z0-9_-]+")) {
             throw new IllegalArgumentException("Set TELEGRAM_BOT_TOKEN before enabling Telegram.");
         }
         this.json = json;
         this.answers = answers;
+        this.reference = reference;
         this.token = token;
     }
 
@@ -64,7 +67,22 @@ public class TelegramPolling {
                     } else if (message.path("text").asText().length() > 1000) {
                         reply = "Вопрос должен содержать не более 1000 символов.";
                     } else {
-                        reply = answers.answer(message.path("text").asText()).answer();
+                        String text = message.path("text").asText().trim();
+                        long userId = message.path("from").path("id").asLong();
+                        try {
+                            if (text.startsWith("/group ")) {
+                                reference.saveProfile(userId, text.substring(7).trim());
+                                reply = "Группа сохранена. Для расписания: /schedule 1 (понедельник).";
+                            } else if (text.matches("/schedule [1-7]")) {
+                                reply = reference.personalSchedule(userId, Integer.parseInt(text.substring(10)));
+                            } else if (text.startsWith("/contacts ")) {
+                                reply = reference.contactText(text.substring(10));
+                            } else {
+                                reply = answers.answer(text).answer();
+                            }
+                        } catch (IllegalArgumentException exception) {
+                            reply = exception.getMessage();
+                        }
                     }
                     call("sendMessage", Map.of("chat_id", message.path("chat").path("id").asLong(), "text", reply));
                 }
