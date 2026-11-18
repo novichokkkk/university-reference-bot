@@ -29,4 +29,5 @@ public class KnowledgeEntry {
     public String getCategory() { return category; }
     public String getAnswer() { return answer; }
     public boolean isDemo() { return demo; }
+    public void changeAnswer(String value) { this.answer = value; }
 }

@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@TestPropertySource(properties = "ADMIN_KEY=test-admin-key")
+@TestPropertySource(properties = {"ADMIN_KEY=test-admin-key", "legacy.admin.enabled=true"})
 class ReferenceTest {
     @Autowired
     private ReferenceService reference;

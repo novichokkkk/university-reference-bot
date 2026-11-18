@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.ulstu.referencebot.entity.DepartmentContact;
 import ru.ulstu.referencebot.repository.ContactRepository;
@@ -18,51 +17,60 @@ public class TelegramMenuService {
     private static final String FACULTIES = "🏛 Факультеты";
     private static final String PROFILE = "👤 Профиль";
     private static final String TOPICS = "📚 Темы";
-    private static final String HELP = "ℹ️ Помощь";
-    private static final String ADMIN = "⚙️ Админка";
+    private static final String ADMIN = "Управление базой";
 
     private final AnswerService answers;
     private final ReferenceService reference;
     private final ContactRepository contacts;
+    private final TelegramDatabaseManager databaseManager;
     private final Set<Long> waitingForGroup = ConcurrentHashMap.newKeySet();
-    private final boolean adminEnabled;
-    private final int port;
 
     public TelegramMenuService(AnswerService answers, ReferenceService reference, ContactRepository contacts,
-            @Value("${ADMIN_KEY:}") String adminKey, @Value("${server.port:8080}") int port) {
+            TelegramDatabaseManager databaseManager) {
         this.answers = answers;
         this.reference = reference;
         this.contacts = contacts;
-        this.adminEnabled = !adminKey.isBlank();
-        this.port = port;
+        this.databaseManager = databaseManager;
     }
 
     public record Reply(String text, Map<String, Object> markup) { }
 
     public Reply onText(long userId, String rawText) {
         if (rawText == null || rawText.isBlank()) {
-            return main("Бот принимает текстовые сообщения. Выберите раздел кнопкой ниже.");
+            return main(userId, "Бот принимает текстовые сообщения. Выберите раздел кнопкой ниже.");
         }
-        if (rawText.length() > 1000) {
-            return main("Сообщение слишком длинное. Напишите не более 1000 символов.");
+        if (rawText.length() > 2000) {
+            return main(userId, "Сообщение слишком длинное. Напишите не более 2000 символов.");
         }
         String text = rawText.trim();
         if (text.equals("/cancel")) {
             waitingForGroup.remove(userId);
-            return main("Действие отменено. Выберите раздел.");
+            databaseManager.cancel(userId);
+            return main(userId, "Действие отменено. Выберите раздел.");
+        }
+        if (text.equals(ADMIN) || text.equals("/admin")) {
+            waitingForGroup.remove(userId);
+            return databaseManager.isOwner(userId) ? fromAdmin(databaseManager.home(userId))
+                    : main(userId, "Раздел недоступен.");
         }
         if (text.startsWith("/group ")) {
+            databaseManager.cancel(userId);
             return saveGroup(userId, text.substring(7).trim());
         }
+        if (databaseManager.hasPending(userId) && !text.startsWith("/") && !isMenuButton(text)) {
+            return fromAdmin(databaseManager.onText(userId, text));
+        }
+        databaseManager.cancel(userId);
         if (waitingForGroup.contains(userId) && !text.startsWith("/") && !isMenuButton(text)) {
             return saveGroup(userId, text);
         }
         waitingForGroup.remove(userId);
         if (text.equals("/start") || text.equals("/menu")) {
-            return main("Привет! Выберите раздел кнопкой ниже или напишите вопрос своими словами.");
+            return main(userId, "Привет! Выберите раздел кнопкой ниже или напишите вопрос своими словами.");
         }
-        if (text.equals("/help") || text.equals(HELP)) {
-            return main("Кнопки открывают расписание, контакты факультетов, профиль и ответы на частые вопросы. "
+        if (text.equals("/help") || text.equals("ℹ️ Помощь")) {
+            return main(userId, "Кнопки открывают расписание, контакты факультетов, профиль "
+                    + "и ответы на частые вопросы. "
                     + "В профиле сохраняется группа для расписания. Можно также написать вопрос текстом. "
                     + "Команды: /group ПИбд-42, /schedule 1, /contacts ФИСТ, /cancel.");
         }
@@ -73,40 +81,41 @@ public class TelegramMenuService {
             return day(userId, Integer.parseInt(text.substring(10)));
         }
         if (text.equals(FACULTIES) || text.equals("/faculties") || text.equals("/contacts")) {
-            return facultyMenu();
+            return facultyMenu(userId);
         }
         if (text.startsWith("/contacts ")) {
-            return main(reference.contactText(text.substring(10)));
+            return main(userId, reference.contactText(text.substring(10)));
         }
         if (text.equals(PROFILE) || text.equals("/profile")) {
             return profile(userId);
         }
         if (text.equals(TOPICS) || text.equals("/topics")) {
-            return topicMenu();
+            return topicMenu(userId);
         }
-        if (text.equals(ADMIN) || text.equals("/admin")) {
-            return main("Админка редактирует ответы справочника. Она "
-                    + (adminEnabled ? "включена" : "сейчас выключена")
-                    + ". Откройте на компьютере, где запущен бот: http://127.0.0.1:" + port
-                    + "/reference.html. Для доступа задайте ADMIN_KEY в настройках запуска "
-                    + "и введите его на странице. Не отправляйте ключ в Telegram. "
-                    + "Профиль и группа меняются здесь, без админки.");
+        if (text.length() > 1000) {
+            return main(userId, "Вопрос должен содержать не более 1000 символов.");
         }
         var answer = answers.answer(text);
-        return main(answer.answer());
+        return main(userId, answer.answer());
     }
 
     public Reply onCallback(long userId, String data) {
         if (data == null) {
-            return main("Кнопка недоступна. Откройте меню заново.");
+            return main(userId, "Кнопка недоступна. Откройте меню заново.");
         }
+        waitingForGroup.remove(userId);
+        if (data.startsWith("admin:")) {
+            return databaseManager.isOwner(userId) ? fromAdmin(databaseManager.onCallback(userId, data))
+                    : main(userId, "Раздел недоступен.");
+        }
+        databaseManager.cancel(userId);
         if (data.equals("profile:group")) {
             waitingForGroup.add(userId);
-            return main("Напишите название своей группы одним сообщением, например ПИбд-42. "
+            return main(userId, "Напишите название своей группы одним сообщением, например ПИбд-42. "
                     + "Для отмены отправьте /cancel.");
         }
         if (data.equals("menu:faculties")) {
-            return facultyMenu();
+            return facultyMenu(userId);
         }
         if (data.equals("menu:profile")) {
             return profile(userId);
@@ -117,7 +126,7 @@ public class TelegramMenuService {
                 return new Reply(reference.facultyContact(id), inline(List.of(
                         List.of(button("← К факультетам", "menu:faculties")))));
             } catch (IllegalArgumentException exception) {
-                return main("Факультет не найден. Откройте список заново.");
+                return main(userId, "Факультет не найден. Откройте список заново.");
             }
         }
         if (data.matches("day:[1-7]")) {
@@ -130,10 +139,10 @@ public class TelegramMenuService {
                 case "scholarship" -> "Как получить повышенную стипендию?";
                 default -> null;
             };
-            return question == null ? topicMenu()
+            return question == null ? topicMenu(userId)
                     : new Reply(answers.answer(question).answer(), topicButtons());
         }
-        return main("Кнопка устарела. Откройте меню заново.");
+        return main(userId, "Кнопка устарела. Откройте меню заново.");
     }
 
     private Reply saveGroup(long userId, String group) {
@@ -142,7 +151,7 @@ public class TelegramMenuService {
             waitingForGroup.remove(userId);
             return new Reply("Группа «" + group + "» сохранена в профиле. Выберите день расписания.", dayButtons());
         } catch (IllegalArgumentException exception) {
-            return main(exception.getMessage() + " Пример: ПИбд-42. Для отмены — /cancel.");
+            return main(userId, exception.getMessage() + " Пример: ПИбд-42. Для отмены — /cancel.");
         }
     }
 
@@ -166,10 +175,10 @@ public class TelegramMenuService {
         return new Reply(reference.personalSchedule(userId, day), dayButtons());
     }
 
-    private Reply facultyMenu() {
+    private Reply facultyMenu(long userId) {
         List<DepartmentContact> faculties = contacts.findByFacultyTrueOrderByNameAsc();
         if (faculties.isEmpty()) {
-            return main("Список факультетов пока пуст.");
+            return main(userId, "Список факультетов пока пуст.");
         }
         List<List<Map<String, String>>> rows = new ArrayList<>();
         for (DepartmentContact faculty : faculties) {
@@ -178,7 +187,7 @@ public class TelegramMenuService {
         return new Reply("Выберите факультет — покажу телефон, почту и официальный источник.", inline(rows));
     }
 
-    private Reply topicMenu() {
+    private Reply topicMenu(long userId) {
         return new Reply("Выберите тему или задайте вопрос своими словами.", topicButtons());
     }
 
@@ -197,10 +206,18 @@ public class TelegramMenuService {
                 List.of(button("👤 Профиль", "menu:profile"))));
     }
 
-    private Reply main(String text) {
-        return new Reply(text, Map.of("keyboard", List.of(
-                List.of(SCHEDULE, FACULTIES), List.of(PROFILE, TOPICS), List.of(HELP, ADMIN)),
-                "resize_keyboard", true, "is_persistent", true));
+    private Reply main(long userId, String text) {
+        List<List<String>> rows = new ArrayList<>();
+        rows.add(List.of(SCHEDULE, FACULTIES));
+        rows.add(List.of(PROFILE, TOPICS));
+        if (databaseManager.isOwner(userId)) {
+            rows.add(List.of(ADMIN));
+        }
+        return new Reply(text, Map.of("keyboard", rows, "resize_keyboard", true, "is_persistent", true));
+    }
+
+    private Reply fromAdmin(TelegramDatabaseManager.Reply reply) {
+        return new Reply(reply.text(), reply.markup());
     }
 
     private Map<String, Object> inline(List<List<Map<String, String>>> rows) {
@@ -213,7 +230,7 @@ public class TelegramMenuService {
 
     private boolean isMenuButton(String text) {
         return text.equals(SCHEDULE) || text.equals(FACULTIES) || text.equals(PROFILE)
-                || text.equals(TOPICS) || text.equals(HELP) || text.equals(ADMIN);
+                || text.equals(TOPICS) || text.equals("ℹ️ Помощь") || text.equals(ADMIN);
     }
 
     private String facultyLabel(String name) {

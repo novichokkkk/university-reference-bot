@@ -4,19 +4,31 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
+import ru.ulstu.referencebot.repository.FaqRepository;
 import ru.ulstu.referencebot.repository.ContactRepository;
+import ru.ulstu.referencebot.service.AnswerService;
+import ru.ulstu.referencebot.telegram.TelegramDatabaseManager;
 import ru.ulstu.referencebot.telegram.TelegramMenuService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@TestPropertySource(properties = "TELEGRAM_ADMIN_ID=81099")
 class TelegramMenuTest {
     @Autowired
     private TelegramMenuService menu;
     @Autowired
     private ContactRepository contacts;
+    @Autowired
+    private TelegramDatabaseManager databaseManager;
+    @Autowired
+    private FaqRepository faq;
+    @Autowired
+    private AnswerService answers;
 
     @Test
     void menuGuidesUserThroughGroupAndSchedule() {
@@ -44,10 +56,52 @@ class TelegramMenuTest {
     }
 
     @Test
-    void topicsAndProfileHelpStayAccessible() {
+    void topicsAndProfileStayAccessibleWithoutHelpButton() {
         assertTrue(menu.onText(81003L, "📚 Темы").markup().containsKey("inline_keyboard"));
         assertTrue(menu.onCallback(81003L, "topic:dormitory").text().contains("ulstu.ru"));
-        assertTrue(menu.onText(81003L, "⚙️ Админка").text().contains("ADMIN_KEY"));
+        assertFalse(menu.onText(81003L, "/start").markup().toString().contains("Помощь"));
         assertTrue(menu.onText(81003L, "/cancel").markup().containsKey("keyboard"));
+    }
+
+    @Test
+    void leavingGroupPromptDoesNotSaveUnrelatedMessageAsGroup() {
+        long userId = 81005L;
+        menu.onCallback(userId, "profile:group");
+        menu.onCallback(userId, "menu:faculties");
+        menu.onText(userId, "обычный вопрос");
+        assertTrue(menu.onText(userId, "👤 Профиль").text().contains("не указана"));
+    }
+
+    @Test
+    void onlyOwnerCanSeeAndUseDatabaseManagement() {
+        long owner = 81099L;
+        long stranger = 81004L;
+        assertTrue(menu.onText(owner, "/start").markup().toString().contains("Управление базой"));
+        assertFalse(menu.onText(stranger, "/start").markup().toString().contains("Управление базой"));
+        assertTrue(menu.onText(stranger, "Управление базой").text().contains("недоступен"));
+        assertTrue(menu.onCallback(stranger, "admin:home").text().contains("недоступен"));
+        assertTrue(menu.onText(owner, "Управление базой").text().contains("частые вопросы"));
+    }
+
+    @Test
+    void ownerCanAddEditAndDeleteFaqWhileStrangerCannot() {
+        long owner = 81099L;
+        String question = "Тестовый вопрос Telegram о приёме?";
+        menu.onCallback(owner, "admin:faq-add:ADMISSION");
+        assertTrue(menu.onText(owner, question).text().contains("Теперь отправь ответ"));
+        menu.onText(owner, "Первый ответ");
+        long id = faq.findByQuestionIgnoreCase(question).orElseThrow().getId();
+        assertEquals("Первый ответ", answers.answer(question).answer());
+
+        menu.onCallback(owner, "admin:faq-edit:" + id);
+        menu.onText(owner, "Исправленный ответ");
+        assertEquals("Исправленный ответ", answers.answer(question).answer());
+
+        assertTrue(menu.onCallback(81004L, "admin:faq-delete-confirm:" + id).text().contains("недоступен"));
+        assertTrue(faq.existsById(id));
+        menu.onCallback(owner, "admin:faq-delete:" + id);
+        menu.onCallback(owner, "admin:faq-delete-confirm:" + id);
+        assertFalse(faq.existsById(id));
+        assertFalse(databaseManager.hasPending(owner));
     }
 }
