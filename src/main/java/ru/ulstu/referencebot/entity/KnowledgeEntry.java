@@ -14,6 +14,8 @@ public class KnowledgeEntry {
     private String category;
     @Column(nullable = false, length = 2000)
     private String answer;
+    @Column(nullable = false)
+    private boolean demo = true;
 
     protected KnowledgeEntry() { }
 
@@ -26,4 +28,6 @@ public class KnowledgeEntry {
     public String getIntent() { return intent; }
     public String getCategory() { return category; }
     public String getAnswer() { return answer; }
+    public boolean isDemo() { return demo; }
+    public void changeAnswer(String value) { this.answer = value; }
 }

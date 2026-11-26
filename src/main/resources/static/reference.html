@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Справочник университета</title><style>
+body{font:16px system-ui;max-width:900px;margin:2rem auto;padding:0 1rem;color:#18304f}
+section{border:1px solid #ccd4df;border-radius:8px;padding:1rem;margin:1rem 0}
+input,button,textarea,select{font:inherit;margin:.25rem;padding:.45rem}button{background:#2455a9;color:white;border:0;border-radius:5px;cursor:pointer}
+pre{background:#f2f5fa;padding:1rem;white-space:pre-wrap;overflow-wrap:anywhere}
+</style></head><body>
+<h1>Справочник университета</h1>
+<section><h2>Расписание</h2><label>Группа <input id="group" value="ПИбд-42"></label><label>День <select id="day"><option value="1">Понедельник</option><option value="2">Вторник</option><option value="3">Среда</option><option value="4">Четверг</option><option value="5">Пятница</option></select></label><button id="schedule">Найти</button><pre id="schedule-result"></pre></section>
+<section><h2>Контакты</h2><label>Подразделение <input id="query" value="деканат"></label><button id="contacts">Найти</button><pre id="contact-result"></pre></section>
+<script>
+const el=id=>document.getElementById(id), show=(id,x)=>{el(id).textContent=typeof x==='string'?x:JSON.stringify(x,null,2)};
+async function request(url,options={}){const r=await fetch(url,options),t=await r.text();if(!r.ok)throw Error('HTTP '+r.status);try{return JSON.parse(t)}catch{return t||'Готово'}}
+el('schedule').onclick=async()=>{try{const x=await request('/api/reference/schedule?group='+encodeURIComponent(el('group').value)+'&day='+el('day').value);show('schedule-result',x.length?x.map(y=>y.startsAt+' '+y.subject+' — '+y.room).join('\n'):'Занятия не найдены')}catch(e){show('schedule-result',e.message)}};
+el('contacts').onclick=async()=>{try{const x=await request('/api/reference/contacts?query='+encodeURIComponent(el('query').value));show('contact-result',x.length?x.map(y=>y.name+': '+y.phone+', '+y.email+(y.sourceUrl?'\n'+y.sourceUrl:'')).join('\n\n'):'Подразделение не найдено')}catch(e){show('contact-result',e.message)}};
+</script></body></html>
